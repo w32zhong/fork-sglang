@@ -139,6 +139,9 @@ class LlamaModel(nn.Module):
 
         self.midlayer = LlamaDecoderLayer(config, 0, quant_config, prefix)
 
+        self.gate_linear = nn.Linear(config.hidden_size, 1)
+        self.gate = nn.Sigmoid()
+
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(
@@ -178,7 +181,7 @@ class LlamaModel(nn.Module):
         return hidden_states_to_logits, [hidden_states_to_aux]
 
 
-class LlamaForCausalLMEagle3(LlamaForCausalLM):
+class LlamaForCausalLMPonderingEagle3(LlamaForCausalLM):
     def __init__(
         self,
         config: LlamaConfig,
@@ -217,6 +220,8 @@ class LlamaForCausalLMEagle3(LlamaForCausalLM):
         self.hot_token_id = None
 
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]) -> None:
+        #import rpdb; rpdb.set_trace()
+
         params_dict = dict(self.named_parameters())
         # Define the parameter mapping for stacked parameters
         stacked_params_mapping = [
@@ -253,6 +258,7 @@ class LlamaForCausalLMEagle3(LlamaForCausalLM):
                 # Handle regular parameters
                 param_name = name if name in params_dict else f"model.{name}"
                 if param_name in params_dict:
+                    print('Loading', param_name)
                     param = params_dict[param_name]
                     weight_loader = getattr(
                         param, "weight_loader", default_weight_loader
@@ -263,4 +269,4 @@ class LlamaForCausalLMEagle3(LlamaForCausalLM):
         return self.hot_token_id
 
 
-EntryClass = [LlamaForCausalLMEagle3]
+EntryClass = [LlamaForCausalLMPonderingEagle3]
