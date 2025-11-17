@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import random
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
 
@@ -759,9 +760,27 @@ class EAGLEWorker(TpModelWorker):
             input_ids, hidden_states, scores, tree_info = select_top_k_tokens(
                 i, topk_p, topk_index, hidden_states, scores, self.topk
             )
+
             score_list.append(tree_info[0])
             token_list.append(tree_info[1])
             parents_list.append(tree_info[2])
+
+            # early exit
+            if hasattr(self.draft_model_runner.model.model, 'gate_linear'):
+                if True:
+                    gate_logits = self.draft_model_runner.model.model.gate_linear(hidden_states)
+                    e_i = self.draft_model_runner.model.model.gate(gate_logits).item()
+                else:
+                    e_i = random.uniform(0, 1)
+                if e_i > 0.8:
+                    for j in range(i + 1, self.speculative_num_steps):
+                        score_list.append(torch.zeros_like(tree_info[0]))
+                        token_list.append(torch.ones_like(tree_info[1]))
+                        parents_list.append(torch.ones_like(tree_info[1]) * j)
+                    if i + 1 < self.speculative_num_steps:
+                        print('|')
+                        #import rpdb; rpdb.set_trace()
+                    break
 
             # We don't need to run the last forward. we get 1 token from draft prefill and (#spec steps - 1) tokens here
             if i == self.speculative_num_steps - 1:
