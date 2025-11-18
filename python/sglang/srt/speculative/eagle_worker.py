@@ -766,20 +766,23 @@ class EAGLEWorker(TpModelWorker):
             parents_list.append(tree_info[2])
 
             # early exit
-            if hasattr(self.draft_model_runner.model.model, 'gate_linear'):
-                if True:
+            args = self.server_args
+            if hasattr(self.draft_model_runner.model.model, 'gate_linear') and (
+                not args.speculative_pondering_options == 'disabled'):
+                if args.speculative_pondering_options == 'random':
+                    e_i = random.uniform(0, 1)
+                else:
                     gate_logits = self.draft_model_runner.model.model.gate_linear(hidden_states)
                     e_i = self.draft_model_runner.model.model.gate(gate_logits).item()
-                else:
-                    e_i = random.uniform(0, 1)
-                if e_i > 0.8:
+                if e_i > args.speculative_pondering_threshold:
                     for j in range(i + 1, self.speculative_num_steps):
                         score_list.append(torch.zeros_like(tree_info[0]))
                         token_list.append(torch.ones_like(tree_info[1]))
                         parents_list.append(torch.ones_like(tree_info[1]) * j)
                     if i + 1 < self.speculative_num_steps:
-                        print('|')
+                        #print('|')
                         #import rpdb; rpdb.set_trace()
+                        pass
                     break
 
             # We don't need to run the last forward. we get 1 token from draft prefill and (#spec steps - 1) tokens here
